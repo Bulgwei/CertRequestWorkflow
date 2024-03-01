@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+    <xsd:element name="Config" type="ConfigType"/>
+
+    <xsd:complexType name="ConfigType">
+    	<xsd:sequence>
+    		<xsd:element name="Install" type="InstallType" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="Templates" type="TemplatesType" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="AutoApprove" type="AutoApproveType" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="IncludeEmailInSAN" minOccurs="1" maxOccurs="1">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:pattern value="[Tt][Rr][Uu][Ee]"/>
+              <xsd:pattern value="[Ff][Aa][Ll][Ss][Ee]"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+    		<xsd:element name="CaName" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="BaseDir" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="CleanUpDuration" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="Mail" type="MailType" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="Eventlog" type="EventlogType" minOccurs="1" maxOccurs="1"/>
+      </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="InstallType">
+    	<xsd:sequence>
+    		<xsd:element name="AgentAccountName" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="SubmitTaskName" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="EnrollTaskName" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="TaskRepetitionInterval" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="DistinguishedNameSuffix" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="DatabaseDirectory" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="LogDirectory" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="DsConfigDn" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="AllowAdministratorInteraction" minOccurs="1" maxOccurs="1">
+      </xsd:sequence>
+    </xsd:complexType>
+    <xsd:complexType name="TemplatesType">
+    	<xsd:sequence>
+    		<xsd:element name="Template" type="xsd:string" minOccurs="1" maxOccurs="unbound"/>
+    		<xsd:element name="DefaultTemplate" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+      </xsd:sequence>
+    </xsd:complexType>
+    <xsd:complexType name="AutoApproveType">
+    	<xsd:sequence>
+    		<xsd:element name="EnabledTemplate" type="xsd:string" minOccurs="1" maxOccurs="unbound"/>
+      </xsd:sequence>
+    </xsd:complexType>
+    <xsd:complexType name="MailType">
+    	<xsd:sequence>
+        <xsd:element name="UseMailInformation" minOccurs="1" maxOccurs="1">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:pattern value="[Tt][Rr][Uu][Ee]"/>
+              <xsd:pattern value="[Ff][Aa][Ll][Ss][Ee]"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+        <xsd:element name="UseAdminEmail" minOccurs="1" maxOccurs="1">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:pattern value="[Tt][Rr][Uu][Ee]"/>
+              <xsd:pattern value="[Ff][Aa][Ll][Ss][Ee]"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+    		<xsd:element name="Server" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="Port" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="SSLPort" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="MailFrom" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="MailCC" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="AdminMailTo" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="Subject" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="SubmitMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="EnrollMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="FailMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="DenyMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+      </xsd:sequence>
+    </xsd:complexType>
+    <xsd:complexType name="EventlogType">
+    	<xsd:sequence>
+    		<xsd:element name="EventLog" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="EventSource" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+        <xsd:element name="UseEventlog" minOccurs="1" maxOccurs="1">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:pattern value="[Tt][Rr][Uu][Ee]"/>
+              <xsd:pattern value="[Ff][Aa][Ll][Ss][Ee]"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+        <xsd:element name="WriteSuccessEvents" minOccurs="1" maxOccurs="1">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:pattern value="[Tt][Rr][Uu][Ee]"/>
+              <xsd:pattern value="[Ff][Aa][Ll][Ss][Ee]"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+    		<xsd:element name="FailEventID" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="SubmitEventID" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="IssueEventID" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="EnrollEventID" type="xsd:integer" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="SubmitEventMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="EnrollEventMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="FailedEventMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+    		<xsd:element name="DeniedEventMsg" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+      </xsd:sequence>
+    </xsd:complexType>
+</xsd:schema>

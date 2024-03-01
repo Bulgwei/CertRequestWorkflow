@@ -1,0 +1,235 @@
+﻿<?xml version="1.0"?>
+<!--
+==============================================================================================
+THIS SAMPLE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED 
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR 
+FITNESS FOR A PARTICULAR PURPOSE.
+
+This sample is not supported under any Microsoft standard support program or service. 
+The script is provided AS IS without warranty of any kind. Microsoft further disclaims all
+implied warranties including, without limitation, any implied warranties of merchantability
+or of fitness for a particular purpose. The entire risk arising out of the use or performance
+of the sample and documentation remains with you. In no event shall Microsoft, its authors,
+or anyone else involved in the creation, production, or delivery of the script be liable for 
+any damages whatsoever (including, without limitation, damages for loss of business profits, 
+business interruption, loss of business information, or other pecuniary loss) arising out of 
+the use of or inability to use the sample or documentation, even if Microsoft has been advised 
+of the possibility of such damages.
+==============================================================================================
+
+MCS Cyber
+26.07.2021
+verion 1.1
+andreas.luy@microsoft.com
+
+
+	Note:
+		You should use an Editor with Syntax Highlighting for XML to edit this file
+		Capable Applications include:
+		- Notepad++
+		- Visual Studio Code
+		You may have serious trouble properly formatting the file wihout Syntax highlighting.
+
+	Description:
+		The Configuration File starts with a Config Node.
+		This enables us to merge multiple Files into one single XML Configuration when loading
+		The Node contains all Configuration Settings for process automation.
+-->
+
+
+<Config>
+	<!--
+		Description:
+			The Install Node is used for installing the agents
+	-->
+    <Install>
+        <!-- define the account that should be used for events (gMSA has to end with a "$") -->
+        <AgentAccountName>fabrikam\ReqAGNTgMSA$</AgentAccountName>
+
+        <!-- define the task name for the "Submit Agent" -->
+        <SubmitTaskName>SubmitAgent</SubmitTaskName>
+
+        <!-- define the task name for the "Enroll Agent" -->
+        <EnrollTaskName>EnrollAgent</EnrollTaskName>
+
+        <!-- define the task repetition intervals in hours -->
+        <TaskRepetitionInterval>1</TaskRepetitionInterval>
+    </Install>
+
+	<!--
+		Description:
+			The Template Node specifies the allowed certificate templates for the request automation
+	-->
+    <Templates>
+	    <Template>FabrikamWeb</Template>
+	    <Template>FabrikamWeb2</Template>
+	    <Template>FabrikamWeb3</Template>
+	    <!--
+		    Description:
+			    The DefaultTemplate Node specifies the certificate template to be used if no template has been specified
+                MANDATORY! MUST BE DEFINED!
+	    -->
+    	<DefaultTemplate>FabrikamWeb</DefaultTemplate>
+    </Templates>
+	<!--
+		Description:
+			The AutoApprove Node specifies whether auto-approval for pending requests based on
+            specific named templates are allowed
+            NOTE: It is highle recommended to NOT enable this functionality for security reasons
+	-->
+	<AutoApprove>
+	    <EnabledTemplate>FabrikamWeb3</EnabledTemplate>
+    </AutoApprove>
+	<!--
+		Description:
+			The IncludeEmailInSAN Node specifies whether available email information
+            should be written as SAN into the certificates (values: true/false)
+	-->
+	<IncludeEmailInSAN>true</IncludeEmailInSAN>
+	<!--
+		Description:
+			The CaName Node specifies the target CA for the request automation
+            The name has to be in format "fqdn\CA name"
+	-->
+	<CaName>adcsca03.fabrikam.com\Fabrikam Issuing CA 1</CaName>
+	<!--
+		Description:
+			The BaseDir Node specifies the base folder in the network where 
+			the script is looking for incoming requests
+	-->
+	<BaseDir>\\san.fabrikam.com\sanshare\AutoReqCntl\FabIssuingCa1</BaseDir>
+	<!--
+		Description:
+			The CleanUpDuration Node specifies time in days after that the files in folder will be deleted
+	-->
+	<CleanUpDuration>14</CleanUpDuration>
+
+	<!--
+		Description:
+			The Mail Node specifies necessary setting for sending mails of the working status
+	-->
+    <Mail>
+        <UseMailInformation>false</UseMailInformation>
+        <UseAdminEmail>false</UseAdminEmail>
+        <Server>adcsdc01.fabrikam.com</Server>
+        <Port>25</Port>
+        <UseSSL>false</UseSSL>
+        <SSLPort>25</SSLPort>
+        <MailFrom>CertificateAutomation@fabrikam.com</MailFrom>
+        <MailCC>PKIAdmins@fabrikam.com</MailCC>
+        <AdminMailTo>PKIAdmins@fabrikam.com</AdminMailTo>
+        <Subject>Incoming Certificate Request Status</Subject>
+         
+        <!-- 
+            Message when successfully submitted a request. For a new line place
+            `n`r at the end of the line
+            terms enveloped by "!" are placeholders and will get replaced during
+            script run
+         -->
+        <SubmitMsg>
+Hello,`n`r
+`n`r
+this is to inform you that your request !REQName! has been submitted and is waiting for formal approval.`n`r
+You will get informed if the status will change!`n`r
+`n`r
+Thank you!
+        </SubmitMsg>
+
+        <!-- 
+            Message when successfully issued and enrolled a certificate.For a new line place
+            `n`r at the end of the line 
+            terms enveloped by "!" are placeholders and will get replaced during
+            script run
+        -->
+        <EnrollMsg>
+Hello,`n`r
+`n`r
+your request !REQName! has been processed. You can download your certifcates using the following link:`n`r
+file://!CERName!`n`r
+file://!P7BName!`n`r
+`n`r
+Thank you!
+        </EnrollMsg>
+
+
+        <!-- 
+            Message when issuing failed.For a new line place
+            `n`r at the end of the line 
+            terms enveloped by "!" are placeholders and will get replaced during
+            script run
+        -->
+        <FailMsg>
+Hello,`n`r
+`n`r
+the issuance of your request !REQName! has been failed to issue. Please contact`n`r
+    PKIAdms@contoso.com`n`r
+for further infomation.`n`r
+`n`r
+Thank you!
+        </FailMsg>
+
+        <!-- 
+            Message when request has been denied.For a new line place
+            `n`r at the end of the line 
+            terms enveloped by "!" are placeholders and will get replaced during
+            script run
+        -->
+        <DenyMsg>
+Hello,`n`r
+`n`r
+your request !REQName! has been denied. Please contact`n`r
+    PKIAdms@contoso.com`n`r
+for further infomation.`n`r
+`n`r
+Thank you!
+        </DenyMsg>
+
+    </Mail>
+
+	<!--
+		Description:
+			The Eventlog Node specifies necessary setting for writing working status
+            and errors into a defined event log
+	-->
+    <Eventlog>
+        <!-- define the event log that should be used for events
+            MANDATORY! MUST BE DEFINED!
+         -->
+        <EventLog>ADCS-Scripts</EventLog>
+
+        <!-- define the event source that should be used for events in the eventlog 
+            MANDATORY! MUST BE DEFINED!
+        -->
+        <EventSource>ADCS-Enroll-Agent</EventSource>
+
+        <!-- use the eventlog to log enrollment status events (true/false) -->
+        <UseEventlog>True</UseEventlog>
+
+        <!-- write success events to the eventlog (true/false) -->
+        <WriteSuccessEvents>True</WriteSuccessEvents>
+
+        <!-- define the event ID that should be used for failure events in the eventlog -->
+        <FailEventID>666</FailEventID>
+    
+        <!-- define the event ID that should be used for submit events in the eventlog -->
+        <SubmitEventID>667</SubmitEventID>
+
+        <!-- define the event ID that should be used for issue events in the eventlog -->
+        <IssueEventID>665</IssueEventID>
+
+        <!-- define the event ID that should be used for enroll events in the eventlog -->
+        <EnrollEventID>664</EnrollEventID>
+
+        <!-- define the event msg for submit request events in the eventlog -->
+        <SubmitEventMsg>The request !REQName!, RequestID: !REQID! has been submitted and is waiting for formal approval.</SubmitEventMsg>
+
+        <!-- define the event msg for enroll events in the eventlog -->
+        <EnrollEventMsg>The request !REQName!, RequestID: !REQID! has been enrolled.</EnrollEventMsg>
+
+        <!-- define the event msg for enroll events in the eventlog -->
+        <FailedEventMsg>The request !REQName!, RequestID: !REQID! has been failed.</FailedEventMsg>
+
+        <!-- define the event msg for enroll events in the eventlog -->
+        <DeniedEventMsg>The request !REQName!, RequestID: !REQID! has been denied.</DeniedEventMsg>
+    </Eventlog>
+</Config>
