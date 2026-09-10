@@ -1,3 +1,22 @@
+<%-- text 
+ THIS SAMPLE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED 
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR 
+ FITNESS FOR A PARTICULAR PURPOSE.
+
+ This sample is provided under the terms of Apache License, Version 2.0 (the "License"). 
+ You may not use this sample code except in compliance with the License.
+
+ The entire risk arising out of the use or performance of the sample and documentation remains
+ with you. 
+ In no event shall Microsoft, its authors, or anyone else involved in the creation, production, 
+ or delivery of the script be liable for any damages whatsoever (including, without limitation, 
+ damages for loss of business profits, business interruption, loss of business information, or 
+ other pecuniary loss) arising out of the use of or inability to use the sample or documentation.
+
+ custom Csr verification library. All automatic verifcation rule should be place here!
+--%>
+
+
 <%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System" %>
 <%@ Import Namespace="System.Collections.Generic" %>
