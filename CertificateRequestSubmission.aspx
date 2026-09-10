@@ -540,6 +540,8 @@
         * { box-sizing: border-box; }
         body { margin: 0; background: radial-gradient(circle at 85% 10%, #dceeea 0, transparent 28rem), var(--paper); color: var(--ink); font: 16px/1.5 Consolas, 'Courier New', monospace; }
         main { width: min(1120px, calc(100% - 48px)); margin: 32px auto; }
+        .page-header { margin-bottom: 24px; }
+        .page-header h1 { margin-bottom: 8px; }
         h1 { margin: 0 0 8px; font-size: clamp(1.2rem, 5.5vw, 3.5rem); line-height: 1.05; letter-spacing: 0; white-space: nowrap; }
         .lede { color: var(--muted); margin: 0 0 28px; }
         .panel { background: rgba(255,253,249,.94); border: 1px solid var(--line); border-top: 5px solid var(--accent); padding: clamp(20px, 4vw, 42px); box-shadow: 0 18px 45px rgba(23,33,43,.09); }
@@ -581,6 +583,10 @@
 </head>
 <body>
     <main>
+        <header class="page-header">
+            <h1>Certificate Request Workflow</h1>
+            <p class="lede">Submit and inspect certificate requests for the configured AD CS inbox.</p>
+        </header>
         <section id="submissionPage" runat="server" class="panel">
             <form id="form1" runat="server" enctype="multipart/form-data">
                 <div class="form-tabs" role="tablist">
@@ -588,8 +594,6 @@
                     <asp:Button ID="detailsTab" runat="server" Text="Request Details" OnClick="ParseRequest" OnClientClick="persistSubmissionForm();" CssClass="tab tab-action" Enabled="false" />
                 </div>
                 <div id="submissionTabPanel" class="form-tab-panel">
-                    <h1>Certificate Request Submission</h1>
-                    <p class="lede">Place a validated certificate request into the configured AD CS inbox.</p>
                     <div class="grid">
                     <div>
                         <label for="caList">Certificate authority</label>
