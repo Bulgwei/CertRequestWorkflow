@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+
+<!--
+
+rules must have the following format:
+ <rule>
+   <principal>...</principal>
+   <allowedCA>...</allowedCA>
+   <allowedTemplate>...</allowedTemplate>
+   <allowedSanType>...</allowedSanType>
+   <allowedNameSpace>...</allowedNameSpace>
+ </rule>
+
+The principal is the identity of the caller, which can be a user
+or a group. Principal can be specified in the following formats:
+- Distinguished Name (DN) format: CN=John Doe,OU=Users,DC=example,DC=com
+- User Principal Name (UPN) format: john.doe@example.com
+- Security Account Manager (SAM) format: EXAMPLE\johndoe
+
+The allowedCA is the name of the CA that the caller is allowed 
+to request certificates from.
+
+The allowedTemplate is the name of the certificate template that 
+the caller is allowed to request certificates for.
+
+The allowedSanType is the type of Subject Alternative Name (SAN) 
+that the caller is allowed to request.  
+The allowedNameSpace is the namespace that the caller is allowed 
+to request certificates for.
+
+allowedCA, allowedTemplate, allowedSanType, and allowedNameSpace 
+can be a wildcard (*) - or empty, which means that the caller is 
+allowed to request certificates from any CA, for any template, 
+for any SAN type, or for any namespace, respectively.
+The above elements can occur multiple times in a rule, which 
+means that the caller is allowed to request certificates from any 
+of the specified CAs, for any of the specified templates, for any 
+of the specified SAN types, or for any of the specified namespaces, 
+respectively.
+
+The rules are evaluated in order, and the first rule that matches
+the caller's identity and the requested CA, template, SAN type, 
+and namespace is used to determine whether the request is allowed.
+
+-->
+
+<certEnrollment>
+  <rules>
+    <rule>
+      <principal>CN=John Doe,OU=Users,DC=example,DC=com</principal>
+      <allowedCA>ExampleCA</allowedCA>
+      <allowedTemplate>UserTemplate</allowedTemplate>
+      <allowedSanType>DNS</allowedSanType>
+      <allowedNameSpace>example.com</allowedNameSpace>
+    </rule>
+    <rule>
+      <principal>CN=Jane Smith,OU=Users,DC=example,DC=com</principal>
+      <allowedCA>*</allowedCA>
+      <allowedTemplate>*</allowedTemplate>
+      <allowedSanType>*</allowedSanType>
+      <allowedNameSpace>*</allowedNameSpace>
+    </rule>
+  </rules>
+</certEnrollment>
