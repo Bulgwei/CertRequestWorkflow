@@ -316,6 +316,74 @@ Function Update-Config2Registry
     }
 }
 
+Function Write-Rules
+{
+    param (
+        [Parameter(Mandatory=$True)] [String]$RulesFile
+    )
+
+    If (!(Test-Path -Path $RulesFile)) {
+        throw "Rules file '$RulesFile' was not found."
+    }
+
+    [xml]$RulesDocument = Get-Content -Path $RulesFile -Raw
+    $RuleRoot = Join-Path $RegistryRoot "EnrollmentRules"
+    New-Item -Path $RuleRoot -Force | Out-Null
+
+    $ExistingRules = @(Get-ChildItem -Path $RuleRoot -ErrorAction SilentlyContinue | Sort-Object {
+        $order = (Get-ItemProperty -Path $_.PSPath -Name RuleOrder -ErrorAction SilentlyContinue).RuleOrder
+        if ($null -eq $order) { [int]::MaxValue } else { [int]$order }
+    }, Name)
+    $Rules = @($RulesDocument.SelectNodes('/certEnrollment/rules/rule'))
+
+    for ($ruleIndex = 0; $ruleIndex -lt $Rules.Count; $ruleIndex++) {
+        $rule = $Rules[$ruleIndex]
+        $ruleParts = @($rule.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } | ForEach-Object {
+            "{0}={1}" -f $_.Name, $_.InnerText.Trim()
+        })
+        $normalizedRule = [String]::Join("`n", $ruleParts)
+        $hashBytes = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes($normalizedRule))
+        $ruleHash = ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+
+        if ($ruleIndex -lt $ExistingRules.Count) {
+            $rulePath = $ExistingRules[$ruleIndex].PSPath
+            $existingHash = (Get-ItemProperty -Path $rulePath -Name RuleHash -ErrorAction SilentlyContinue).RuleHash
+            if ($existingHash -eq $ruleHash) {
+                Write-Host "Rule $($ruleIndex + 1) unchanged - skipping ..."
+                continue
+            }
+            Write-Host "Rule $($ruleIndex + 1) changed - updating ..."
+        } else {
+            $ruleId = [guid]::NewGuid().ToString()
+            $rulePath = Join-Path $RuleRoot $ruleId
+            New-Item -Path $rulePath -Force | Out-Null
+            Write-Host "Rule $($ruleIndex + 1) is new - creating ..."
+        }
+
+        $oldProperties = @(Get-ItemProperty -Path $rulePath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name | Where-Object { $_ -notlike 'PS*' })
+        if ($oldProperties.Count -gt 0) {
+            Remove-ItemProperty -Path $rulePath -Name $oldProperties -ErrorAction SilentlyContinue
+        }
+        New-ItemProperty -Path $rulePath -Name RuleOrder -Value $ruleIndex -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $rulePath -Name RuleHash -Value $ruleHash -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $rulePath -Name RuleXml -Value $normalizedRule -PropertyType String -Force | Out-Null
+
+        $displayName = $rule.SelectSingleNode('name')
+        if ($null -ne $displayName) {
+            New-ItemProperty -Path $rulePath -Name DisplayName -Value $displayName.InnerText.Trim() -PropertyType String -Force | Out-Null
+        }
+        $rule.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } | Group-Object Name | ForEach-Object {
+            $values = @($_.Group | ForEach-Object { $_.InnerText.Trim() })
+            New-ItemProperty -Path $rulePath -Name $_.Name -Value $values -PropertyType MultiString -Force | Out-Null
+        }
+    }
+
+    if ($ExistingRules.Count -gt $Rules.Count) {
+        $ExistingRules[$Rules.Count..($ExistingRules.Count - 1)] | Remove-Item -Recurse -Force -Confirm:$false
+    }
+}
+
 Function Remove-ConfigRegistry
 {
     If (Test-Path -Path $RegistryRoot) {

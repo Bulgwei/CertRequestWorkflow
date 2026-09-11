@@ -4,12 +4,16 @@
 
 rules must have the following format:
  <rule>
+   <name>...</name>
    <principal>...</principal>
    <allowedCA>...</allowedCA>
    <allowedTemplate>...</allowedTemplate>
    <allowedSanType>...</allowedSanType>
    <allowedNameSpace>...</allowedNameSpace>
  </rule>
+
+Name is an optional element that can be used to give a rule a
+descriptive name.  It is not used in the evaluation of the rules.
 
 The principal is the identity of the caller, which can be a user
 or a group. Principal can be specified in the following formats:
@@ -18,15 +22,28 @@ or a group. Principal can be specified in the following formats:
 - Security Account Manager (SAM) format: EXAMPLE\johndoe
 
 The allowedCA is the name of the CA that the caller is allowed 
-to request certificates from.
+to request certificates from. CA name must be in the format 
+"fqdn\CA name".  For example: "ca.example.com\Example CA".
 
 The allowedTemplate is the name of the certificate template that 
 the caller is allowed to request certificates for.
+The template name must match the ldap name of the template as 
+defined in Active Directory.  For example: "UserTemplate".
 
 The allowedSanType is the type of Subject Alternative Name (SAN) 
 that the caller is allowed to request.  
+The allowed SAN types are: DNS, UPN, Email.
+
 The allowedNameSpace is the namespace that the caller is allowed 
 to request certificates for.
+The namespace format depends on the SAN type.  For example, 
+if the SAN type is DNS, the namespace must be a valid DNS name.  
+If the SAN type is UPN, the namespace must be a valid UPN format.
+If the SAN type is Email, the namespace must be a valid email address 
+format.
+Wildcards can be used in the namespace to allow for including subdomains.
+e.g. "*.example.com" would allow for any subdomain of example.com.
+but "*example.com" will only allow for example.com and not any subdomains.
 
 allowedCA, allowedTemplate, allowedSanType, and allowedNameSpace 
 can be a wildcard (*) - or empty, which means that the caller is 
@@ -47,6 +64,7 @@ and namespace is used to determine whether the request is allowed.
 <certEnrollment>
   <rules>
     <rule>
+      <name>John Doe Rule</name>
       <principal>CN=John Doe,OU=Users,DC=example,DC=com</principal>
       <allowedCA>ExampleCA</allowedCA>
       <allowedTemplate>UserTemplate</allowedTemplate>

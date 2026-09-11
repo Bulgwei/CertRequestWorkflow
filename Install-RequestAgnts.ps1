@@ -31,6 +31,10 @@
     define whether the Configuration should be updated in registry
     default value: false
 
+    .PARAMETER UpdateRules
+    define whether the enrollment rules should be updated in registry
+    default value: false
+
     .PARAMETER IgnoreAccountVerification
     skip scheduled-task account and gMSA installation verification in install and update mode
     default value: false
@@ -40,7 +44,7 @@
 
    .Notes
     AUTHOR: Andreas Luy
-    Version 1.2
+    Version 1.3
     last change 11.09.2026
 
 #>
@@ -60,6 +64,10 @@ Param (
     [Switch]$UpdateConfig,
 
     [Parameter(Mandatory=$false,
+        ParameterSetName="Update-Rules")]
+    [Switch]$UpdateRules,
+
+    [Parameter(Mandatory=$false,
         ParameterSetName="Install")]
     [Parameter(Mandatory=$false,
         ParameterSetName="Update")]
@@ -71,6 +79,8 @@ Param (
         ParameterSetName="Uninstall")]
     [Parameter(Mandatory=$false,
         ParameterSetName="Update")]
+    [Parameter(Mandatory=$false,
+        ParameterSetName="Update-Rules")]
     [Switch]$Help
 )
 
@@ -225,6 +235,7 @@ Function Install-Scripts {
 
 #region create registry keys
         Create-ConfigRegistry $ConfigFile
+        Write-Rules ($ScriptBaseDir+"\Rules.xml")
         Set-RegKeyPermissions "ControlFile" $AgentAccountName "FullControl"
 #endregion
 
@@ -294,6 +305,9 @@ Function Uninstall-Scripts {
 
 #region removing registry keys
         Remove-ConfigRegistry
+        If (Test-Path -Path ($RegistryRoot+"\EnrollmentRules")) {
+            Remove-Item ($RegistryRoot+"\EnrollmentRules") -Recurse -Force -Confirm:$false
+        }
 #endregion
 
 #region removing folder structure and event log
@@ -331,6 +345,7 @@ $BaseDir = $Config.Config.BaseDir
 #$InstallAgents=$true
 #$UninstallAgents=$true
 #$UpdateConfig=$true
+#$UpdateRules=$true
 #$ScriptDir = "C:\LabFiles\AutoReqCntl"
 #endregion
 
@@ -346,4 +361,8 @@ if ($UninstallAgents) {
 If ($UpdateConfig) {
     Assert-AgentAccount -AccountName $Config.Config.Install.AgentAccountName -IgnoreVerification:$IgnoreAccountVerification
     Update-Config2Registry $ConfigFile
+}
+
+If ($UpdateRules) {
+    Write-Rules ($ScriptDir+"\Rules.xml")
 }
