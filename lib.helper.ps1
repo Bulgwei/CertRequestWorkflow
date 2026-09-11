@@ -157,6 +157,20 @@ Function Test-RegistryValue
     Return $ValueExist
 }
 
+Function Get-RegistryStringValue
+{
+    param (
+        [Parameter(Mandatory=$True)] [string]$RegKeyPath,
+        [Parameter(Mandatory=$True)] [string]$Value
+    )
+
+    $registryValue = (Get-ItemProperty -Path $RegKeyPath -Name $Value).$Value
+    if ($registryValue -is [Array]) {
+        return [string]$registryValue[0]
+    }
+    return [string]$registryValue
+}
+
 Function Compare-FileHash
 {
     param (
@@ -203,7 +217,7 @@ Function Create-ConfigRegistry
     }
 #region general reg keys
     New-Item -Path $RegistryRoot -Force
-    New-ItemProperty -Path $RegistryRoot -Name CaName -Value $Config.Config.CaName -PropertyType String -Force
+    New-ItemProperty -Path $RegistryRoot -Name CaName -Value @([string]$Config.Config.CaName) -PropertyType MultiString -Force
     New-ItemProperty -Path $RegistryRoot -Name Templates -Value $Config.Config.Templates.Template -PropertyType MultiString -Force
     New-ItemProperty -Path $RegistryRoot -Name DefaultTemplate -Value $Config.Config.Templates.DefaultTemplate -PropertyType String -Force
     New-ItemProperty -Path $RegistryRoot -Name AutoApproveTemplates -Value $Config.Config.AutoApprove.EnabledTemplate -PropertyType MultiString -Force
@@ -260,7 +274,8 @@ Function Update-Config2Registry
     )
     If (Test-Path -Path $RegistryRoot) {
 #region general reg keys
-        Set-ItemProperty -Path $RegistryRoot -Name CaName -Value $Config.Config.CaName -Force
+        Remove-ItemProperty -Path $RegistryRoot -Name CaName -ErrorAction SilentlyContinue
+        New-ItemProperty -Path $RegistryRoot -Name CaName -Value @([string]$Config.Config.CaName) -PropertyType MultiString -Force
         Set-ItemProperty -Path $RegistryRoot -Name Templates -Value $Config.Config.Templates.Template  -Force
         Set-ItemProperty -Path $RegistryRoot -Name DefaultTemplate -Value $Config.Config.Templates.DefaultTemplate -Force
         Set-ItemProperty -Path $RegistryRoot -Name AutoApproveTemplates -Value $Config.Config.AutoApprove.EnabledTemplate -Force
@@ -435,7 +450,7 @@ function Is-CertSrvRunning
 
 function Is-IcertReqOnline
 {
-    $CACnfg = (Get-ItemProperty -Path $RegistryRoot -Name "CaName").CaName
+    $CACnfg = Get-RegistryStringValue -RegKeyPath $RegistryRoot -Value "CaName"
     $result = certutil -config $CACnfg -ping
     $IsAlive = if($result -like "*ICertRequest2 interface is alive*") {$true}else{$false}
     return $IsAlive

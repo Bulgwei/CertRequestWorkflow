@@ -18,12 +18,16 @@
 
 
 <%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Assembly Name="System.DirectoryServices, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" %>
+<%@ Assembly Name="System.DirectoryServices.AccountManagement, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" %>
 <%@ Import Namespace="System" %>
 <%@ Import Namespace="System.Collections.Generic" %>
 <%@ Import Namespace="System.Diagnostics" %>
 <%@ Import Namespace="System.IO" %>
 <%@ Import Namespace="System.Linq" %>
 <%@ Import Namespace="System.Security" %>
+<%@ Import Namespace="System.DirectoryServices" %>
+<%@ Import Namespace="System.DirectoryServices.AccountManagement" %>
 <%@ Import Namespace="Microsoft.Win32" %>
 <%@ Import Namespace="System.Text" %>
 
@@ -35,6 +39,18 @@
     private const string SelectedCaSessionKey = "CertificateRequestSelectedCa";
     private const string SelectedTemplateSessionKey = "CertificateRequestSelectedTemplate";
     private const string SanSessionKey = "CertificateRequestSan";
+    private const string OwnerSessionKey = "CertificateRequestOwner";
+    private const string CostCenterSessionKey = "CertificateRequestCostCenter";
+    private const string ChangeIdSessionKey = "CertificateRequestChangeId";
+
+    private sealed class RequestMetadata
+    {
+        public string Requester;
+        public string PrimaryGroup;
+        public string Ou;
+        public string Email;
+        public string MatchingRule;
+    }
 
     [Serializable]
     private sealed class RequestConfig
@@ -72,6 +88,7 @@
             if (!IsPostBack)
             {
                 BindConfiguration();
+                BindRequestMetadata();
                 RestoreSubmissionSettings();
                 var hasStoredUpload = HasStoredUpload();
                 detailsTab.Enabled = hasStoredUpload;
@@ -88,6 +105,132 @@
         {
             ShowError(ex);
         }
+    }
+
+    private RequestMetadata ReadRequestMetadata()
+    {
+        var identity = Context.User == null ? null : Context.User.Identity;
+        if (identity == null || !identity.IsAuthenticated || String.IsNullOrWhiteSpace(identity.Name))
+            throw new InvalidOperationException("The accessing principal could not be identified.");
+
+        var principalName = identity.Name;
+        var accountName = principalName.Contains("\\") ? principalName.Split('\\').Last() : principalName;
+        var identityType = principalName.Contains("@") && !principalName.Contains("\\")
+            ? IdentityType.UserPrincipalName
+            : IdentityType.SamAccountName;
+        var metadata = new RequestMetadata
+        {
+            Requester = principalName,
+            PrimaryGroup = "None",
+            Ou = "Not available",
+            Email = "",
+            MatchingRule = "No matching enrollment rule"
+        };
+
+        using (var context = new PrincipalContext(ContextType.Domain))
+        using (var user = UserPrincipal.FindByIdentity(context, identityType, identityType == IdentityType.UserPrincipalName ? principalName : accountName))
+        {
+            if (user == null)
+                throw new InvalidOperationException("The authenticated account could not be resolved in Active Directory.");
+
+            metadata.Requester = String.IsNullOrWhiteSpace(user.UserPrincipalName) ? principalName : user.UserPrincipalName;
+            try
+            {
+                metadata.Email = GetPrimarySmtpAddress(user);
+            }
+            catch (Exception)
+            {
+                metadata.Email = user.EmailAddress ?? "";
+            }
+            if (!String.IsNullOrWhiteSpace(user.DistinguishedName))
+                metadata.Ou = GetOrganizationalUnit(user.DistinguishedName);
+
+            try
+            {
+                using (var entry = user.GetUnderlyingObject() as DirectoryEntry)
+                {
+                    if (entry != null && entry.Properties["primaryGroupID"].Value != null)
+                    {
+                        var primaryGroupRid = Convert.ToString(entry.Properties["primaryGroupID"].Value);
+                        foreach (var group in user.GetAuthorizationGroups())
+                        {
+                            if (group.Sid != null && group.Sid.Value.EndsWith("-" + primaryGroupRid, StringComparison.OrdinalIgnoreCase))
+                            {
+                                metadata.PrimaryGroup = group.Name;
+                                group.Dispose();
+                                break;
+                            }
+                            group.Dispose();
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                metadata.PrimaryGroup = "None";
+            }
+        }
+
+        return metadata;
+    }
+
+    private static string GetPrimarySmtpAddress(UserPrincipal user)
+    {
+        using (var entry = user.GetUnderlyingObject() as DirectoryEntry)
+        {
+            if (entry != null)
+            {
+                foreach (var address in entry.Properties["proxyAddresses"])
+                {
+                    var value = Convert.ToString(address);
+                    if (value.StartsWith("SMTP:", StringComparison.Ordinal))
+                        return value.Substring(5);
+                }
+            }
+        }
+        return user.EmailAddress ?? "";
+    }
+
+    private static string GetOrganizationalUnit(string distinguishedName)
+    {
+        var parts = distinguishedName.Split(',').Where(x => x.TrimStart().StartsWith("OU=", StringComparison.OrdinalIgnoreCase));
+        return String.Join(",", parts.Select(x => x.Trim()));
+    }
+
+    private RequestMetadata Metadata
+    {
+        get { return ReadRequestMetadata(); }
+    }
+
+    private void BindRequestMetadata()
+    {
+        var metadata = Metadata;
+        requesterInput.Value = metadata.Requester;
+        primaryGroupInput.Value = metadata.PrimaryGroup;
+        requesterOuInput.Value = metadata.Ou;
+        requesterEmailInput.Value = metadata.Email;
+        ownerInput.Value = Convert.ToString(Session[OwnerSessionKey]);
+        if (String.IsNullOrWhiteSpace(ownerInput.Value))
+            ownerInput.Value = metadata.Email;
+        matchingRuleInput.Value = metadata.MatchingRule;
+        costCenterInput.Value = Convert.ToString(Session[CostCenterSessionKey]);
+        changeIdInput.Value = Convert.ToString(Session[ChangeIdSessionKey]);
+    }
+
+    private void ValidateRequestMetadata()
+    {
+        var metadata = ReadRequestMetadata();
+        if (String.IsNullOrWhiteSpace(requesterInput.Value)
+            || String.IsNullOrWhiteSpace(primaryGroupInput.Value)
+            || String.IsNullOrWhiteSpace(requesterOuInput.Value)
+            || String.IsNullOrWhiteSpace(requesterEmailInput.Value)
+            || String.IsNullOrWhiteSpace(ownerInput.Value)
+            || String.IsNullOrWhiteSpace(costCenterInput.Value)
+            || String.IsNullOrWhiteSpace(changeIdInput.Value))
+            throw new InvalidOperationException("Complete all request metadata fields before submitting.");
+        if (!String.Equals(requesterInput.Value, metadata.Requester, StringComparison.OrdinalIgnoreCase)
+            || !String.Equals(requesterEmailInput.Value, metadata.Email, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Request identity metadata is no longer valid. Reload the form and try again.");
     }
 
     private RequestConfig ReadConfig()
@@ -139,6 +282,9 @@
         Session[SelectedCaSessionKey] = caList.SelectedValue;
         Session[SelectedTemplateSessionKey] = templateList.SelectedValue;
         Session[SanSessionKey] = sanInput.Value ?? "";
+        Session[OwnerSessionKey] = ownerInput.Value ?? "";
+        Session[CostCenterSessionKey] = costCenterInput.Value ?? "";
+        Session[ChangeIdSessionKey] = changeIdInput.Value ?? "";
     }
 
     private void RestoreSubmissionSettings()
@@ -192,6 +338,7 @@
         try
         {
             ValidateUpload();
+            ValidateRequestMetadata();
             var selectedCa = caList.SelectedValue;
             if (String.IsNullOrWhiteSpace(selectedCa) || !Config.Cas.Contains(selectedCa, StringComparer.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Select a configured CA.");
@@ -454,6 +601,9 @@
         Session.Remove(SelectedCaSessionKey);
         Session.Remove(SelectedTemplateSessionKey);
         Session.Remove(SanSessionKey);
+        Session.Remove(OwnerSessionKey);
+        Session.Remove(CostCenterSessionKey);
+        Session.Remove(ChangeIdSessionKey);
     }
 
     private void ShowError(Exception ex)
@@ -478,6 +628,9 @@
                 ca: document.getElementById('<%= caList.ClientID %>').value,
                 template: document.getElementById('<%= templateList.ClientID %>').value,
                 san: document.getElementById('<%= sanInput.ClientID %>').value,
+                owner: document.getElementById('<%= ownerInput.ClientID %>').value,
+                costCenter: document.getElementById('<%= costCenterInput.ClientID %>').value,
+                changeId: document.getElementById('<%= changeIdInput.ClientID %>').value,
                 fileName: upload && upload.files.length ? upload.files[0].name : ''
             };
             window.sessionStorage.setItem(submissionStateKey, JSON.stringify(state));
@@ -492,10 +645,16 @@
                 var ca = document.getElementById('<%= caList.ClientID %>');
                 var template = document.getElementById('<%= templateList.ClientID %>');
                 var san = document.getElementById('<%= sanInput.ClientID %>');
+                var owner = document.getElementById('<%= ownerInput.ClientID %>');
+                var costCenter = document.getElementById('<%= costCenterInput.ClientID %>');
+                var changeId = document.getElementById('<%= changeIdInput.ClientID %>');
                 var fileName = document.getElementById('<%= selectedFileName.ClientID %>');
                 if (ca && state.ca !== undefined) ca.value = state.ca;
                 if (template && state.template !== undefined) template.value = state.template;
                 if (san && state.san !== undefined) san.value = state.san;
+                if (owner && state.owner !== undefined) owner.value = state.owner;
+                if (costCenter && state.costCenter !== undefined) costCenter.value = state.costCenter;
+                if (changeId && state.changeId !== undefined) changeId.value = state.changeId;
                 if (fileName && state.fileName) fileName.textContent = 'Chosen request: ' + state.fileName;
             } catch (error) {
                 window.sessionStorage.removeItem(submissionStateKey);
@@ -529,11 +688,24 @@
         function returnToSubmission() {
             document.getElementById('<%= detailsPage.ClientID %>').style.display = 'none';
             document.getElementById('submissionTabPanel').style.display = 'block';
+            document.getElementById('metadataTabPanel').style.display = 'none';
             window.scrollTo(0, 0);
         }
 
         function showSubmissionTab() {
+            document.getElementById('submissionTabButton').setAttribute('aria-selected', 'true');
+            document.getElementById('metadataTabButton').setAttribute('aria-selected', 'false');
             returnToSubmission();
+        }
+
+        function showMetadataTab() {
+            persistSubmissionForm();
+            document.getElementById('submissionTabButton').setAttribute('aria-selected', 'false');
+            document.getElementById('metadataTabButton').setAttribute('aria-selected', 'true');
+            document.getElementById('submissionTabPanel').style.display = 'none';
+            document.getElementById('metadataTabPanel').style.display = 'block';
+            document.getElementById('<%= detailsPage.ClientID %>').style.display = 'none';
+            window.scrollTo(0, 0);
         }
 
         window.addEventListener('DOMContentLoaded', function () {
@@ -569,6 +741,7 @@
         .full { grid-column: 1 / -1; }
         label { display: block; font-weight: bold; margin-bottom: 7px; }
         input[type=file], select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 2px; background: #fff; color: var(--ink); padding: 10px 12px; font: inherit; }
+        input[id$="primaryGroupInput"], input[id$="requesterOuInput"], input[id$="requesterInput"], input[id$="requesterEmailInput"], input[id$="ownerInput"], input[id$="matchingRuleInput"] { width: calc(100%); }
         textarea { min-height: 130px; resize: vertical; }
         .file-row { display: flex; align-items: center; gap: 16px; margin-top: 5px; }
         .file-row input[type=file] { width: auto; flex: 0 1 auto; }
@@ -597,7 +770,7 @@
         .result-area { min-height: 520px; }
         .details-panel .tabs { margin-top: 0; }
         pre { max-height: 68vh; min-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #17212b; color: #e7f0ed; padding: 20px; font: 13px/1.45 Consolas, 'Courier New', monospace; }
-        @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } .full { grid-column: auto; } .file-row { align-items: stretch; flex-direction: column; gap: 8px; } .file-row input[type=file], .retained-file { width: 100%; } main { margin: 24px auto; } }
+        @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } .full { grid-column: auto; } .file-row { align-items: stretch; flex-direction: column; gap: 8px; } .file-row input[type=file], .retained-file { width: 100%; } input[id$="primaryGroupInput"], input[id$="requesterOuInput"], input[id$="requesterInput"], input[id$="requesterEmailInput"], input[id$="ownerInput"], input[id$="matchingRuleInput"] { width: 100%; } main { margin: 24px auto; } }
     </style>
 </head>
 <body>
@@ -607,9 +780,10 @@
             <p class="lede">Submit and inspect certificate requests for the configured AD CS inbox.</p>
         </header>
         <section id="submissionPage" runat="server" class="panel">
-            <form id="form1" runat="server" enctype="multipart/form-data">
+                <form id="form1" runat="server" enctype="multipart/form-data" novalidate="novalidate">
                 <div class="form-tabs" role="tablist">
-                    <button type="button" class="tab" role="tab" aria-selected="true" onclick="showSubmissionTab();">Certificate Request Submission</button>
+                    <button id="submissionTabButton" type="button" class="tab" role="tab" aria-selected="true" onclick="showSubmissionTab();">Certificate Request Submission</button>
+                    <button id="metadataTabButton" type="button" class="tab" role="tab" aria-selected="false" onclick="showMetadataTab();">Request Meta Data</button>
                     <asp:Button ID="detailsTab" runat="server" Text="Request Details" OnClick="ParseRequest" OnClientClick="persistSubmissionForm();" CssClass="tab tab-action" Enabled="false" />
                 </div>
                 <div id="submissionTabPanel" class="form-tab-panel">
@@ -643,7 +817,43 @@
                         <asp:Label ID="status" runat="server" CssClass="status" />
                     </div>
                 </div>
-                <section id="detailsPage" runat="server" class="details-panel" visible="false">
+                <div id="metadataTabPanel" class="form-tab-panel" style="display: none;">
+                    <div class="grid">
+                    <div>
+                        <label for="requesterInput">Requester</label>
+                        <input id="requesterInput" runat="server" type="text" readonly="readonly" />
+                    </div>
+                    <div>
+                        <label for="primaryGroupInput">Primary group</label>
+                        <input id="primaryGroupInput" runat="server" type="text" readonly="readonly" />
+                    </div>
+                    <div>
+                        <label for="requesterOuInput">Active Directory OU</label>
+                        <input id="requesterOuInput" runat="server" type="text" readonly="readonly" />
+                    </div>
+                    <div>
+                        <label for="requesterEmailInput">Primary SMTP address</label>
+                        <input id="requesterEmailInput" runat="server" type="email" readonly="readonly" />
+                    </div>
+                    <div>
+                        <label for="ownerInput">Owner/Responsible</label>
+                        <input id="ownerInput" runat="server" type="email" />
+                    </div>
+                    <div>
+                        <label for="matchingRuleInput">Matching enrollment rule</label>
+                        <input id="matchingRuleInput" runat="server" type="text" readonly="readonly" />
+                    </div>
+                    <div>
+                        <label for="costCenterInput">Cost center</label>
+                        <input id="costCenterInput" runat="server" type="text" />
+                    </div>
+                    <div>
+                        <label for="changeIdInput">Change ID</label>
+                        <input id="changeIdInput" runat="server" type="text" />
+                    </div>
+                    </div>
+                </div>
+                <section id="detailsPage" runat="server" class="details-panel" style="display: none;">
                     <h1 id="detailsTitle" runat="server">Certificate Request Details</h1>
                     <p class="lede">Full output from the Windows certificate request parser.</p>
                     <div class="result-area">

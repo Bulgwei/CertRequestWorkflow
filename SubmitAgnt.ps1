@@ -216,7 +216,7 @@ if(!(Is-IcertReqOnline)) {
 break
 }
 
-$TargetCA = (Get-ItemProperty -Path $RegistryRoot -Name "CaName").CaName
+$TargetCA = Get-RegistryStringValue -RegKeyPath $RegistryRoot -Value "CaName"
 $AllowedTemplateList = (Get-ItemProperty -Path $RegistryRoot -Name "Templates").Templates
 $global:DefaultTmpl = (Get-ItemProperty -Path $RegistryRoot -Name "DefaultTemplate").DefaultTemplate
 [boolean]$UseEmailInSAN = (Get-ItemProperty -Path $RegistryRoot -Name "AllowEmailInSAN").AllowEmailInSAN

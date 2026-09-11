@@ -150,7 +150,7 @@ if(!(Is-IcertReqOnline)) {
 break
 }
 
-$TargetCA = (Get-ItemProperty -Path $RegistryRoot -Name "CaName").CaName
+$TargetCA = Get-RegistryStringValue -RegKeyPath $RegistryRoot -Value "CaName"
 $ReqList=@()
 
 # clean up the file system
