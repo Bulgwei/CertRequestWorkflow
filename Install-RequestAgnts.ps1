@@ -31,12 +31,17 @@
     define whether the Configuration should be updated in registry
     default value: false
 
+    .PARAMETER IgnoreAccountVerification
+    skip scheduled-task account and gMSA installation verification in install and update mode
+    default value: false
+
     .PARAMETER Help
     display help.
 
    .Notes
-    AUTHOR: Andreas Luy, MSFT; andreas.luy@microsoft.com
-    last change 26.07.2021
+    AUTHOR: Andreas Luy
+    Version 1.2
+    last change 11.09.2026
 
 #>
 
@@ -57,6 +62,12 @@ Param (
     [Parameter(Mandatory=$false,
         ParameterSetName="Install")]
     [Parameter(Mandatory=$false,
+        ParameterSetName="Update")]
+    [Switch]$IgnoreAccountVerification,
+
+    [Parameter(Mandatory=$false,
+        ParameterSetName="Install")]
+    [Parameter(Mandatory=$false,
         ParameterSetName="Uninstall")]
     [Parameter(Mandatory=$false,
         ParameterSetName="Update")]
@@ -68,9 +79,58 @@ If ($Help) {
     exit
 }
 
-Function Check-Installed
-{
+Function Test-AgentAccount {
+    param (
+        [Parameter(Mandatory=$True)] [String]$AccountName
+    )
 
+    $normalizedAccountName = $AccountName.Trim()
+    if ([String]::IsNullOrWhiteSpace($normalizedAccountName)) {
+        throw "AgentAccountName is empty."
+    }
+
+    $isGmsa = $normalizedAccountName.EndsWith('$')
+    $accountToResolve = $normalizedAccountName.TrimEnd('$')
+    try {
+        $ntAccount = New-Object System.Security.Principal.NTAccount($normalizedAccountName)
+        $null = $ntAccount.Translate([System.Security.Principal.SecurityIdentifier])
+    }
+    catch {
+        throw "The scheduled task account '$normalizedAccountName' does not exist or cannot be resolved: $($_.Exception.Message)"
+    }
+
+    if ($isGmsa) {
+        if (-not (Get-Command Test-ADServiceAccount -ErrorAction SilentlyContinue)) {
+            throw "Cannot verify gMSA '$normalizedAccountName': Test-ADServiceAccount is unavailable. Install/import the ActiveDirectory module."
+        }
+
+        $gmsaIdentity = $accountToResolve.Split('\')[-1]
+        try {
+            if (-not (Test-ADServiceAccount -Identity $gmsaIdentity -ErrorAction Stop)) {
+                throw "The gMSA '$normalizedAccountName' exists but is not installed on this computer."
+            }
+        }
+        catch {
+            throw "The gMSA '$normalizedAccountName' could not be verified on this computer: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Host "Scheduled task account '$normalizedAccountName' verified." -ForegroundColor Green
+    return $true
+}
+
+Function Assert-AgentAccount {
+    param (
+        [Parameter(Mandatory=$True)] [String]$AccountName,
+        [Parameter(Mandatory=$False)] [Switch]$IgnoreVerification
+    )
+
+    if ($IgnoreVerification) {
+        Write-Warning "Skipping scheduled task account verification by request."
+        return
+    }
+
+    $null = Test-AgentAccount -AccountName $AccountName
 }
 
 Function Check-AdminPrivileges {
@@ -88,7 +148,8 @@ Function Check-AdminPrivileges {
 Function Install-Scripts {
     param (
         [Parameter(Mandatory=$True) ] [String]$ScriptBaseDir,
-        [Parameter(Mandatory=$True) ] [String]$WorkDir
+        [Parameter(Mandatory=$True) ] [String]$WorkDir,
+        [Parameter(Mandatory=$False)] [Switch]$IgnoreAccountVerification
     )
 
     $TranscriptFile = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)EnrollAgentInstallation_$(Get-Date -format yyyyMMdd_HHmmss).txt"
@@ -105,6 +166,8 @@ Function Install-Scripts {
     $EnrollTaskName = "Microsoft\ADCS\"+$Config.Config.Install.EnrollTaskName
     $AgentAccountName = $Config.Config.Install.AgentAccountName
     [int32]$TaskInterval = $Config.Config.Install.TaskRepetitionInterval
+
+    Assert-AgentAccount -AccountName $AgentAccountName -IgnoreVerification:$IgnoreAccountVerification
 
     if (Check-AdminPrivileges) {
 #region creating and configuring event log
@@ -273,7 +336,7 @@ $BaseDir = $Config.Config.BaseDir
 
 
 if ($InstallAgents) {
-    Install-Scripts $ScriptDir $BaseDir
+    Install-Scripts -ScriptBaseDir $ScriptDir -WorkDir $BaseDir -IgnoreAccountVerification:$IgnoreAccountVerification
 }
 
 if ($UninstallAgents) {
@@ -281,5 +344,6 @@ if ($UninstallAgents) {
 }
 
 If ($UpdateConfig) {
+    Assert-AgentAccount -AccountName $Config.Config.Install.AgentAccountName -IgnoreVerification:$IgnoreAccountVerification
     Update-Config2Registry $ConfigFile
 }
